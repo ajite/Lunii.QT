@@ -1,0 +1,41 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - v*.*.*
+
+jobs:
+  build_linux:
+    uses: ./.github/workflows/build_linux.yml
+
+  build_win:
+    uses: ./.github/workflows/build_msi.yml
+
+  build_mac_arm:
+    uses: ./.github/workflows/build_mac_arm.yml
+
+  build_mac_intel:
+    uses: ./.github/workflows/build_mac_intel.yml
+
+  release:
+    needs: [build_linux, build_win, build_mac_arm, build_mac_intel]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Download Release Artefacts
+      uses: actions/download-artifact@v4
+      with:
+        pattern: release-*
+        path: ./release
+        merge-multiple: true
+
+    - name: Release
+      uses: softprops/action-gh-release@v2
+      with:
+        generate_release_notes: true
+        files: ./release/*

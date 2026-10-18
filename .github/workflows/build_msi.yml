@@ -2,11 +2,7 @@ name: Build for Windows (MSI & Portable)
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - cx_freeze
-    tags:
-      - v*.*.*
+  workflow_call:
 
 jobs:
   build_win:
@@ -67,10 +63,10 @@ jobs:
         path: |
           ./build/Lunii-Qt
 
-    - name: Release
-      uses: softprops/action-gh-release@v1
+    - name: Upload Release Artefact
+      uses: actions/upload-artifact@v4.0.0
       with:
-        draft: true
-        files: |
+        name: release-win64
+        path: |
           ./dist/*.msi
           Lunii.Qt-${{ github.ref_name }}-win64_portable.zip

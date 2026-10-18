@@ -1,9 +1,7 @@
 name: Build for Linux
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - v*.*.*
+  workflow_call:
 
 jobs:
   build_linux:
@@ -43,11 +41,8 @@ jobs:
         path: |
           ./lunii-qt
 
-    - name: Release
-      uses: softprops/action-gh-release@v1
-      if: startsWith(github.ref, 'refs/tags/')
+    - name: Upload Release Artefact
+      uses: actions/upload-artifact@v4.0.0
       with:
-        draft: true
-        files: Lunii.Qt-${{ github.ref_name }}-Linux-x86_64.zip
-
- 
+        name: release-Linux-x86_64
+        path: Lunii.Qt-${{ github.ref_name }}-Linux-x86_64.zip

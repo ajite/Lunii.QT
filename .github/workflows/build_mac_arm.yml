@@ -2,9 +2,7 @@ name: Build for MacOs (on Arm)
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - v*.*.*
+  workflow_call:
 
 jobs:
   build_mac_arm:
@@ -24,38 +22,22 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -r requirements.txt
-        # Force the pure-Python charset_normalizer: the default wheel is mypyc-compiled
-        # and its extensions import a hash-named top-level module (e.g.
-        # ada92cb5d92a588d1b93__mypyc) that py2app does not collect, so the bundled
-        # package fails to import and requests falls back with a warning.
+        # mypyc wheel of charset_normalizer is not collected by py2app
         pip install --no-binary charset_normalizer --force-reinstall charset_normalizer
         pip install py2app
         brew install create-dmg
-        
+
     - name: Build Exec
       run: |
         pyside6-uic ./pkg/ui/main.ui -o ./pkg/ui/main_ui.py
         pyside6-uic ./pkg/ui/nm.ui   -o ./pkg/ui/nm_ui.py
         pyside6-lupdate ./pkg/ui/main.ui ./pkg/ui/nm.ui ./pkg/ui/about_ui.py ./pkg/ui/debug_ui.py ./pkg/ui/login_ui.py ./pkg/nm_window.py ./pkg/main_window.py ./pkg/ierWorker.py ./pkg/versionWorker.py ./pkg/api/devices.py ./pkg/api/device_flam.py ./pkg/api/device_lunii.py -ts ./locales/fr_FR.ts
-        pyside6-lrelease ./locales/fr_FR.ts ./locales/fr_FR.qm  
+        pyside6-lrelease ./locales/fr_FR.ts ./locales/fr_FR.qm
         pyside6-rcc ./resources.qrc -o ./resources_rc.py
         python macos_setup.py py2app
         ls -al ./dist/
         echo "SIZE POST-BUILD"
         du -sh ./dist/luniiQt*
-    
-    # - name: Make portable archive
-    #   run: |
-    #     cd dist
-    #     ditto -c -k --sequesterRsrc --keepParent luniiQt.app luniiQt-${{ github.ref_name }}.zip
-
-    # - name: Upload Portable Artefact
-    #   uses: actions/upload-artifact@v4.0.0
-    #   with:
-    #     name: luniiQt-${{ github.ref_name }}-MacOs-arm64_Py2App
-    #     compression-level: 0 # no compression
-    #     path: |
-    #       ./dist/luniiQt-${{ github.ref_name }}.zip
 
     - name: Cleanup MacOs App
       run: |
@@ -65,23 +47,7 @@ jobs:
         echo "SIZE POST-CLEANUP"
         du -sh ./dist/luniiQt*
 
-    # Two fixes that must run after the cleanup and before packaging:
-    #
-    # 1. py2app's launcher stub is a universal binary (x86_64 + arm64), but the
-    #    native extension modules pip installs on this runner are arm64-only
-    #    (PIL/_imaging, psutil, xxtea, pyppmd, ...). If LaunchServices picks the
-    #    x86_64 slice, the stub aborts inside __boot__.py with "incompatible
-    #    architecture" before the main script ever runs, and the user only sees
-    #    py2app's generic "Launch error" dialog. Thinning the stub leaves
-    #    LaunchServices no wrong slice to choose.
-    #    (Launching the binary directly from a shell always picked the native
-    #    slice, which is why this did not show up in a terminal.)
-    #
-    # 2. macos_cleanup.py deletes files that py2app had already sealed into the
-    #    code signature, so the shipped bundle failed `codesign --verify` with
-    #    "a sealed resource is missing or invalid". On Apple Silicon an invalid
-    #    signature is fatal and cannot be bypassed with "Open Anyway", so the
-    #    bundle has to be re-signed once it is final.
+    # universal stub with single arch modules gives "Launch error", and cleanup breaks py2app signature
     - name: Force native architecture and re-sign bundle
       run: |
         set -e
@@ -97,9 +63,6 @@ jobs:
             echo "$exe thinned to $(lipo -archs "$p")"
           fi
         done
-        # Sign nested code first, then the bundle. `--deep` is deprecated by Apple
-        # and refuses to sign a bundle containing an unsigned nested dylib, which
-        # happens depending on where a wheel's bundled libraries came from.
         find "$APP/Contents" -type f \( -name '*.dylib' -o -name '*.so' \) | while read -r f; do
           codesign --verify "$f" >/dev/null 2>&1 || codesign --force --sign - "$f"
         done
@@ -108,19 +71,6 @@ jobs:
         fi
         codesign --force --sign - "$APP"
         codesign --verify --verbose=1 "$APP"
-
-    # - name: Make Light portable archive
-    #   run: |  
-    #     cd dist
-    #     ditto -c -k --sequesterRsrc --keepParent luniiQt.app luniiQt-${{ github.ref_name }}.zip
-
-    # - name: Upload Portable Artefact
-    #   uses: actions/upload-artifact@v4.0.0
-    #   with:
-    #     name: luniiQt-${{ github.ref_name }}-MacOs-arm64_Py2App_Light
-    #     compression-level: 0 # no compression
-    #     path: |
-    #       ./dist/luniiQt-${{ github.ref_name }}.zip
 
     - name: Create DMG
       run: |
@@ -141,7 +91,7 @@ jobs:
           --format UDZO \
           "dist/luniiQt-${{ github.ref_name }}-MacOs-arm64.dmg" \
           "dist/luniiQt.app"
-        
+
     - name: Upload DMG Artefact
       uses: actions/upload-artifact@v4.0.0
       with:
@@ -165,11 +115,11 @@ jobs:
         path: |
           ./dist/luniiQt-${{ github.ref_name }}-MacOs-arm64.pkg
 
-    - name: Release
-      uses: softprops/action-gh-release@v1
-      if: startsWith(github.ref, 'refs/tags/')
+    - name: Upload Release Artefact
+      uses: actions/upload-artifact@v4.0.0
       with:
-        draft: true
-        files: |
+        name: release-MacOs-arm64
+        compression-level: 0 # no compression
+        path: |
           ./dist/luniiQt-${{ github.ref_name }}-MacOs-arm64.dmg
           ./dist/luniiQt-${{ github.ref_name }}-MacOs-arm64.pkg
