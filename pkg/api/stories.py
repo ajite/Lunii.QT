@@ -509,7 +509,7 @@ def xxtea_decipher(buffer, key, offset, dec_len):
     # if something to be done
     if offset < len(buffer) and offset + dec_len <= len(buffer):
         chunk = buffer[offset:dec_len]
-        # Safety check: Data length must be a multiple of 4 bytes and must not be less than 8 bytes
+        # xxtea requires at least 8 bytes, multiple of 4
         if len(chunk) >= 8 and len(chunk) % 4 == 0:
             plain = xxtea.decrypt(chunk, key, padding=False, rounds=lunii_tea_rounds(chunk))
             ba_buffer = bytearray(buffer)
@@ -527,7 +527,7 @@ def xxtea_cipher(buffer, key, offset, enc_len):
     # if something to be done
     if offset < len(buffer) and offset + enc_len <= len(buffer):
         chunk = buffer[offset:enc_len]
-        # Safety check: Data length must be a multiple of 4 bytes and must not be less than 8 bytes
+        # xxtea requires at least 8 bytes, multiple of 4
         if len(chunk) >= 8 and len(chunk) % 4 == 0:
             ciphered = xxtea.encrypt(chunk, key, padding=False, rounds=lunii_tea_rounds(chunk))
             ba_buffer = bytearray(buffer)

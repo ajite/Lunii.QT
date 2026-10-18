@@ -1685,10 +1685,7 @@ class FlamDevice(QtCore.QObject):
         return zip_path
 
     def __find_shared_bt(self, key_data, skip_uuid):
-        # The bt file (transcipher key + iv) is shared by every story belonging
-        # to the same owner, identified by an identical "key" file. When a story
-        # is missing its bt, look for a sibling story (same key, different uuid)
-        # that still has one and return its 32 bytes (key + iv).
+        # bt is shared by all stories with same key file, looking for a sibling one
         for basedir in (self.STORIES_BASEDIR, self.HIDDEN_STORIES_BASEDIR):
             base_path = os.path.join(self.mount_point, basedir)
             if not os.path.isdir(base_path):
@@ -1745,10 +1742,7 @@ class FlamDevice(QtCore.QObject):
                     story_key = fp_bt.read(16)
                     story_iv = fp_bt.read(16)
 
-            # bt may be missing for some stories while another story sharing the
-            # same owner (same "key" file) still carries it. The bt (transcipher
-            # key) is shared across all stories of a given owner, so we can borrow
-            # it from a sibling story to export this one as plain.
+            # missing bt ? borrowing it from a sibling story
             if not exportable and os.path.isfile(story_keyfile):
                 shared_bt = self.__find_shared_bt(story_keydata, one_story.uuid)
                 if shared_bt:

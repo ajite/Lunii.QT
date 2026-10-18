@@ -35,11 +35,7 @@ ACTION_FFMPEG = 12
 
 
 def _ssl_context():
-    # Use the certifi CA bundle for SSL verification. The stdlib ssl module
-    # does not read the Windows certificate store, which leads to
-    # CERTIFICATE_VERIFY_FAILED on some setups (see issue #64). The requests
-    # library used elsewhere already relies on certifi, so this keeps urlopen
-    # consistent with the rest of the app.
+    # stdlib ssl does not read windows certificate store, using certifi bundle
     return ssl.create_default_context(cafile=certifi.where())
 
 
