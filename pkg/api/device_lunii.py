@@ -1516,7 +1516,7 @@ class LuniiDevice(QtCore.QObject):
                 story_arcnames.append(str(one_story.uuid) + file)
 
         try:
-            with zipfile.ZipFile(zip_path, 'w', strict_timestamps=False) as zip_out:
+            with zipfile.ZipFile(zip_path, 'w') as zip_out:
                 self.signal_logger.emit(logging.DEBUG, QCoreApplication.translate("LuniiDevice", "> Zipping story ..."))
                 for index, file in enumerate(story_flist):
                     # abort requested ? early exit
@@ -1525,7 +1525,12 @@ class LuniiDevice(QtCore.QObject):
 
                     self.signal_story_progress.emit(one_story.short_uuid, index, len(story_flist))
                     self.signal_logger.emit(logging.DEBUG, story_arcnames[index])
-                    zip_out.write(file, story_arcnames[index])
+                    try:
+                        zip_out.write(file, story_arcnames[index])
+                    except (OSError, ValueError):
+                        # invalid timestamp (before 1980 or unreadable) ? using default date
+                        with open(file, 'rb') as fp_src:
+                            zip_out.writestr(zipfile.ZipInfo(story_arcnames[index]), fp_src.read())
 
         except PermissionError as e:
             self.signal_logger.emit(logging.ERROR, QCoreApplication.translate("LuniiDevice", "failed to create ZIP - {}").format(e))
